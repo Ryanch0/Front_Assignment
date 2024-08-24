@@ -32,7 +32,7 @@ const ItemContainer = styled.div`
   width: 250px;
   margin-left : 20px;
 
-  ${props => props.$isBlocked && `
+  ${props => props.$containerBlocked && `
     background : red;
   `}
   
@@ -46,11 +46,12 @@ const DraggableItem = styled.div`
   ${props => props.$isDragging && `
     background : lightgreen;
   `}
+
+  ${props => props.$itemBlocked && `
+    background : red;
+  `}
 `
 
-const IndexContainer = styled.div`
-
-`
 
 
 function App() {
@@ -59,9 +60,11 @@ function App() {
     Array.from({ length: count }, (num, k) => k).map((k) => ({
       id: generateColumnItemId(),
       content: `item${num} ${k + 1}`,
+      number: k + 1
     }));
 
-  const [isBlocked, setIsBlocked] = useState(false)
+  const [containerBlocked, setContainerBlocked] = useState(false) // 첫번째 컬럼 -> 세번째 컬럼 block
+  const [itemBlocked, setItemBlocked] = useState(false)
 
   const [columns, setColumns] = useState([
     {
@@ -99,6 +102,8 @@ function App() {
     const { droppableId: destDroppableId, index: destIndex } = destination
     const { droppableId: sourceDroppableId, index: sourceIndex } = source
 
+
+
     // 1. 같은 DroppableId 내에 있는 경우
     // 1-1. 기존 방식의 splice를 이용한 setItem()
     if (destDroppableId === sourceDroppableId) {
@@ -107,17 +112,31 @@ function App() {
       if (!sourceColumn) {
         alert('cannot find target column');
         return;
-      } 
-      // // 4-1. 짝수 아이템은 다른 짝수 아이템 앞으로 이동 불가
-      // else if(sourceIndex % destIndex === ) {
-
-
-      // }
+      }
 
       const sourceItems = sourceColumn.items
-      const sourceItem = sourceItems.splice(sourceIndex, 1)
-      sourceItems.splice(destIndex, 0, sourceItem[0])
+      const splicedItems = sourceItems.splice(sourceIndex, 1)
+      const destColumn = newColumns.find(column => column.id === destDroppableId);
+      const destItems = destColumn.items
+      if (!destColumn) {
+        return;
+      }
+      // console.log(destItems.length) // 실제 길이는 10이지만, 9가 나오는 이유 : splicedItems로 인해 배열의 변화가 일어남
+
+      // 4-1. 짝수 아이템은 다른 짝수 아이템 앞으로 이동 불가
+      if (splicedItems[0].number % 2 === 0 &&
+        destIndex < destItems.length &&  // destItems.length가 줄어들었기 때문에 마지막 인덱스 이상으로 접근 못하게 함
+        destItems[destIndex].number % 2 === 0
+
+      ) {
+        setItemBlocked(false) // drag끝난 뒤 state초기화
+        sourceItems.splice(sourceIndex, 0, splicedItems[0]) //splicedItems는 원본 배열(newColums)에서 빠진 상태. splice()는 원본을 수정한다.
+        return; // 따라서 이 상태에서 배열 복구 없이 return만 한다면 원본 배열에서 splicedItems이 사라진 상태로 업데이트됨.
+      }
+      sourceItems.splice(destIndex, 0, splicedItems[0])
       setColumns(newColumns)
+
+
 
     }
 
@@ -131,8 +150,8 @@ function App() {
       // 3. 첫번째 컬럼에서 세번째 컬럼으로 이동 불가
       if (columns.length >= 3) {
         if (sourceDroppableId == columns[0].id && destDroppableId == columns[2].id) {
-          setIsBlocked(false) // drag끝난 뒤 state 초기화
-          return;
+          setContainerBlocked(false) // drag끝난 뒤 state 초기화
+          return; //이 부분은 단순 조건 검사이기 때문에 특정 조건에서 drop을 아예 차단하고 있기 때문
         }
       }
 
@@ -146,26 +165,36 @@ function App() {
 
       const sourceItems = sourceColumn.items
       const splicedItems = sourceItems.splice(sourceIndex, 1) //소스 가져옴
-
-
       const destColumn = newColumns.find(column => column.id === destDroppableId)
       if (!destColumn) {
         return;
       }
 
       const destItems = destColumn.items
+
+      // 4-2. 짝수 아이템은 다른 짝수 아이템 앞으로 이동 불가
+      if (splicedItems[0].number % 2 === 0 &&
+        destIndex < destItems.length &&  // destItems.length가 줄어들었기 때문에 마지막 인덱스 이상으로 접근 못하게 함
+        destItems[destIndex].number % 2 === 0) {
+        sourceItems.splice(sourceIndex, 0, splicedItems[0]) //splicedItems는 원본 배열(newColums)에서 빠진 상태. splice()는 원본을 수정한다.
+        return; // 따라서 이 상태에서 배열 복구 없이 return만 한다면 원본 배열에서 splicedItems이 사라진 상태로 업데이트됨.
+      }
+
       destItems.splice(destIndex, 0, splicedItems[0])
 
       setColumns(newColumns)
 
     }
 
+
   }
 
 
 
-  const onDragStart = () => {
-    setIsBlocked(false)
+  const onDragStart = (start) => {
+    setContainerBlocked(false)
+    console.log(start.draggableId)
+    setItemBlocked(false)
   }
 
 
@@ -184,11 +213,34 @@ function App() {
 
     if (columns.length >= 3) {
       if (sourceDroppableId == columns[0].id && destDroppableId == columns[2].id) {
-        setIsBlocked(true)
+        setContainerBlocked(true)
       } else {
-        setIsBlocked(false)
+        setContainerBlocked(false)
       }
 
+    }
+
+    const newColumns = [...columns];
+    const sourceColumn = newColumns.find(column => column.id === sourceDroppableId);
+    const destColumn = newColumns.find(column => column.id === destDroppableId);
+    const sourceItems = sourceColumn.items
+    const slicedItems = sourceItems.slice(sourceIndex, sourceIndex + 1) // splice는 원본 배열에 영향을 주므로 slice로 복사본 만듬
+    console.log(slicedItems)
+    const destItems = destColumn.items
+    console.log(destItems[destIndex])
+
+    const isDraggingDown = destIndex > sourceIndex // 드래그 방향에 따라 destItems[destIndex].number가 바뀜
+    const adjacentIndex = isDraggingDown ? destIndex + 1 : destIndex // 아랫방향일경우와 윗방향일 경우
+
+    if(
+      slicedItems[0].number % 2 === 0 &&
+      adjacentIndex >= 0 && 
+      adjacentIndex < destItems.length &&
+      destItems[adjacentIndex]?.number % 2 === 0 // 드래그 방향에 따라 dest아이템이 짝수인지 아닌지 판단
+    ) {
+      setItemBlocked(true)
+    } else {
+      setItemBlocked(false)
     }
   }
 
@@ -213,23 +265,27 @@ function App() {
                       {...provided.droppableProps}
                       ref={provided.innerRef}
                       $isDraggingOver={snapshot.isDraggingOver}
-                      $isBlocked={isBlocked && snapshot.isDraggingOver}
+                      $containerBlocked={containerBlocked && snapshot.isDraggingOver}
                     >
 
                       {items?.map((item, index) => (
-                        <Draggable key={item.id} draggableId={item.id} index={index}>
+                        <Draggable key={item.id} draggableId={item.id} index={index} >
                           {(provided, snapshot) => (
                             <>
-                            <IndexContainer>{index + 1}</IndexContainer>
-                            <DraggableItem
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              {...provided.dragHandleProps}
-                              $isDragging={snapshot.isDragging}
-                              style={provided.draggableProps.style}
-                            >
-                              {item.content}
-                            </DraggableItem>
+                              {/* {
+                                item.num % 2 == 0 ?
+                                  <div>even</div> : <div>odd</div>
+                              } */}
+                              <DraggableItem
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                {...provided.dragHandleProps}
+                                $isDragging={snapshot.isDragging}
+                                $itemBlocked={itemBlocked && snapshot.isDragging}
+                                style={provided.draggableProps.style}
+                              >
+                                {item.content}
+                              </DraggableItem>
                             </>
                           )}
                         </Draggable>
