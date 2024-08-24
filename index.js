@@ -1,6 +1,7 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
+import styled from "styled-components";
 
 const columnIdSet = new Set()
 const columnItemIdSet = new Set()
@@ -23,24 +24,64 @@ const generateColumnItemId = () => {
   return uuid
 }
 
+// style
+
+const ItemContainer = styled.div`
+  background: ${props => props.$isDraggingOver ? 'lightblue' : 'lightgrey'};
+  padding : 16px;
+  width: 250px;
+  margin-left : 20px;
+
+  ${props => props.$isBlocked && `
+    background : red;
+  `}
+  
+`
+
+const DraggableItem = styled.div`
+  user-select: none;
+  padding: 16px;
+  margin: 0 0 8px 0 ;
+  background: grey;
+  ${props => props.$isDragging && `
+    background : lightgreen;
+  `}
+`
+
+const IndexContainer = styled.div`
+
+`
+
 
 function App() {
+
   const getItems = (num, count) =>
     Array.from({ length: count }, (num, k) => k).map((k) => ({
       id: generateColumnItemId(),
-      content: `item${num} ${k}`,
+      content: `item${num} ${k + 1}`,
     }));
 
+  const [isBlocked, setIsBlocked] = useState(false)
 
   const [columns, setColumns] = useState([
     {
       id: generateColumnId(),
-      items: getItems(1, 10)
+      items: getItems(1, 10),
     },
 
     {
       id: generateColumnId(),
       items: getItems(2, 10)
+    },
+
+    {
+      id: generateColumnId(),
+      items: getItems(3, 10)
+    },
+
+    {
+      id: generateColumnId(),
+      items: getItems(4, 10)
     }
   ])
 
@@ -66,7 +107,12 @@ function App() {
       if (!sourceColumn) {
         alert('cannot find target column');
         return;
-      }
+      } 
+      // // 4-1. 짝수 아이템은 다른 짝수 아이템 앞으로 이동 불가
+      // else if(sourceIndex % destIndex === ) {
+
+
+      // }
 
       const sourceItems = sourceColumn.items
       const sourceItem = sourceItems.splice(sourceIndex, 1)
@@ -85,6 +131,7 @@ function App() {
       // 3. 첫번째 컬럼에서 세번째 컬럼으로 이동 불가
       if (columns.length >= 3) {
         if (sourceDroppableId == columns[0].id && destDroppableId == columns[2].id) {
+          setIsBlocked(false) // drag끝난 뒤 state 초기화
           return;
         }
       }
@@ -117,9 +164,38 @@ function App() {
 
 
 
+  const onDragStart = () => {
+    setIsBlocked(false)
+  }
+
+
+  // 드래그 중 예외처리 css처리 함수
+  const onDragUpdate = (result) => {
+    if (!result.destination || !result.source) {
+      return;
+    }
+
+    const { destination,
+      source
+    } = result
+
+    const { droppableId: destDroppableId, index: destIndex } = destination
+    const { droppableId: sourceDroppableId, index: sourceIndex } = source
+
+    if (columns.length >= 3) {
+      if (sourceDroppableId == columns[0].id && destDroppableId == columns[2].id) {
+        setIsBlocked(true)
+      } else {
+        setIsBlocked(false)
+      }
+
+    }
+  }
+
+
   return (
     <div style={{ display: 'flex' }}>
-      <DragDropContext onDragEnd={onDragEnd}>
+      <DragDropContext onDragUpdate={onDragUpdate} onDragEnd={onDragEnd} onDragStart={onDragStart}>
         <div style={{ display: 'flex' }}>
           {columns?.map(column => {
             if (!column) {
@@ -130,58 +206,64 @@ function App() {
               items
             } = column
             return (
-              <Droppable droppableId={id}>
-                {(provided, snapshot) => (
-                  <div
-                    {...provided.droppableProps}
-                    ref={provided.innerRef}
-                    style={getListStyle(snapshot.isDraggingOver)}
-                  >
-                    {items?.map((item, index) => (
-                      <Draggable key={item.id} draggableId={item.id} index={index}>
-                        {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            {...provided.dragHandleProps}
-                            style={getItemStyle(
-                              snapshot.isDragging,
-                              provided.draggableProps.style
-                            )}
-                          >
-                            {item.content}
-                          </div>
-                        )}
-                      </Draggable>
-                    ))}
-                    {provided.placeholder}
-                    <button
-                      onClick={() => {
-                        const newColumns = [...columns]
-                        const selectedColumn = newColumns.find(column => column.id === id)
-                        if (!selectedColumn) {
-                          return;
-                        }
+              <>
+                <Droppable droppableId={id}>
+                  {(provided, snapshot) => (
+                    <ItemContainer
+                      {...provided.droppableProps}
+                      ref={provided.innerRef}
+                      $isDraggingOver={snapshot.isDraggingOver}
+                      $isBlocked={isBlocked && snapshot.isDraggingOver}
+                    >
 
-                        if (!selectedColumn.items || !Array.isArray(selectedColumn.items)) { // 예외처리
-                          selectedColumn.items = []
-                        }
+                      {items?.map((item, index) => (
+                        <Draggable key={item.id} draggableId={item.id} index={index}>
+                          {(provided, snapshot) => (
+                            <>
+                            <IndexContainer>{index + 1}</IndexContainer>
+                            <DraggableItem
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                              $isDragging={snapshot.isDragging}
+                              style={provided.draggableProps.style}
+                            >
+                              {item.content}
+                            </DraggableItem>
+                            </>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                      <button
+                        onClick={() => {
+                          const newColumns = [...columns]
+                          const selectedColumn = newColumns.find(column => column.id === id)
+                          if (!selectedColumn) {
+                            return;
+                          }
 
-                        const newColumnItem = {
-                          id: generateColumnItemId(),
-                          content: 'TestItem'
-                        }
+                          if (!selectedColumn.items || !Array.isArray(selectedColumn.items)) { // 예외처리
+                            selectedColumn.items = []
+                          }
 
-                        selectedColumn.items.push(newColumnItem)
+                          const newColumnItem = {
+                            id: generateColumnItemId(),
+                            content: 'TestItem'
+                          }
 
-                        setColumns(newColumns)
+                          selectedColumn.items.push(newColumnItem)
 
-                      }}
-                    >+</button>
-                  </div>
-                )}
-              </Droppable>
+                          setColumns(newColumns)
+
+                        }}
+                      >+</button>
+                    </ItemContainer>
+                  )}
+                </Droppable>
+              </>
             )
+
           })}
         </div>
       </DragDropContext>
@@ -204,20 +286,5 @@ function App() {
   );
 }
 
-const GRID = 8;
-
-const getItemStyle = (isDragging, draggableStyle) => ({
-  userSelect: "none",
-  padding: GRID * 2,
-  margin: `0 0 ${GRID}px 0`,
-  background: isDragging ? "lightgreen" : "grey",
-  ...draggableStyle,
-});
-
-const getListStyle = (isDraggingOver) => ({
-  background: isDraggingOver ? "lightblue" : "lightgrey",
-  padding: GRID,
-  width: 250,
-});
 
 ReactDOM.render(<App />, document.getElementById("root"));
