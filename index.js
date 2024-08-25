@@ -63,13 +63,21 @@ function App() {
       number: k + 1
     }));
 
+  // 단일 아이템 추가
+  const getItem = (num, count) => {
+    return {
+      id: generateColumnItemId(),
+      content: `item${num} ${count + 1}`,
+      number: count + 1
+    }
+  }
+
   const [containerBlocked, setContainerBlocked] = useState(false) // 첫번째 컬럼 -> 세번째 컬럼 block
   const [itemBlocked, setItemBlocked] = useState(false)
-
   const [columns, setColumns] = useState([
     {
       id: generateColumnId(),
-      items: getItems(1, 10),
+      items: getItems(1, 10)
     },
 
     {
@@ -108,7 +116,7 @@ function App() {
     // 1-1. 기존 방식의 splice를 이용한 setItem()
     if (destDroppableId === sourceDroppableId) {
       const newColumns = [...columns]
-      const sourceColumn = newColumns.find(column => column.id === destDroppableId)
+      const sourceColumn = newColumns.find(column => column.id === sourceDroppableId)
       if (!sourceColumn) {
         alert('cannot find target column');
         return;
@@ -223,25 +231,48 @@ function App() {
     const newColumns = [...columns];
     const sourceColumn = newColumns.find(column => column.id === sourceDroppableId);
     const destColumn = newColumns.find(column => column.id === destDroppableId);
-    const sourceItems = sourceColumn.items
-    const slicedItems = sourceItems.slice(sourceIndex, sourceIndex + 1) // splice는 원본 배열에 영향을 주므로 slice로 복사본 만듬
-    console.log(slicedItems)
-    const destItems = destColumn.items
-    console.log(destItems[destIndex])
+    const sourceItems = [...sourceColumn.items]
+    const slicedItems = sourceItems[sourceIndex] // splice는 원본 배열에 영향을 주므로 slice로 복사본 만듬
+    const destItems = [...destColumn.items]
 
-    const isDraggingDown = destIndex > sourceIndex // 드래그 방향에 따라 destItems[destIndex].number가 바뀜
-    const adjacentIndex = isDraggingDown ? destIndex + 1 : destIndex // 아랫방향일경우와 윗방향일 경우
+    //같은 컬럼에서 짝수아이템이 다른 짝수 아이템 앞으로 갈 경우
+    if (sourceDroppableId === destDroppableId) {
+      const isDraggingDown = destIndex > sourceIndex // 드래그 방향에 따라 destItems[destIndex].number가 바뀜
+      const adjacentIndex = isDraggingDown ? destIndex + 1 : destIndex // 아랫방향일경우와 윗방향일 경우
 
-    if(
-      slicedItems[0].number % 2 === 0 &&
-      adjacentIndex >= 0 && 
-      adjacentIndex < destItems.length &&
-      destItems[adjacentIndex]?.number % 2 === 0 // 드래그 방향에 따라 dest아이템이 짝수인지 아닌지 판단
-    ) {
-      setItemBlocked(true)
-    } else {
-      setItemBlocked(false)
+      if (
+        slicedItems.number % 2 === 0 &&
+        adjacentIndex >= 0 &&
+        adjacentIndex < destItems.length &&
+        destItems[adjacentIndex]?.number % 2 === 0 // 드래그 방향에 따라 dest아이템이 짝수인지 아닌지 판단
+      ) {
+        setItemBlocked(true)
+      } else {
+        setItemBlocked(false)
+      }
+
+      // 제자리 일때
+      if (sourceIndex === destIndex) {
+        setItemBlocked(false)
+      }
+
+
     }
+    //같은 컬럼에서 짝수아이템이 다른 짝수 아이템 앞으로 갈 경우    
+    else if (sourceDroppableId !== destDroppableId) {
+      const adjacentIndex = destIndex
+      if (
+        slicedItems.number % 2 === 0 &&
+        adjacentIndex >= 0 &&
+        adjacentIndex < destItems.length &&
+        destItems[adjacentIndex]?.number % 2 === 0
+      ) {
+        setItemBlocked(true)
+      } else {
+        setItemBlocked(false)
+      }
+    }
+
   }
 
 
@@ -249,7 +280,7 @@ function App() {
     <div style={{ display: 'flex' }}>
       <DragDropContext onDragUpdate={onDragUpdate} onDragEnd={onDragEnd} onDragStart={onDragStart}>
         <div style={{ display: 'flex' }}>
-          {columns?.map(column => {
+          {columns?.map((column, index) => {
             if (!column) {
               return;
             }
@@ -272,10 +303,6 @@ function App() {
                         <Draggable key={item.id} draggableId={item.id} index={index} >
                           {(provided, snapshot) => (
                             <>
-                              {/* {
-                                item.num % 2 == 0 ?
-                                  <div>even</div> : <div>odd</div>
-                              } */}
                               <DraggableItem
                                 ref={provided.innerRef}
                                 {...provided.draggableProps}
@@ -291,24 +318,18 @@ function App() {
                         </Draggable>
                       ))}
                       {provided.placeholder}
+
+                      {/* 단일 아이템 추가 버튼 */}
                       <button
                         onClick={() => {
                           const newColumns = [...columns]
-                          const selectedColumn = newColumns.find(column => column.id === id)
-                          if (!selectedColumn) {
-                            return;
-                          }
 
-                          if (!selectedColumn.items || !Array.isArray(selectedColumn.items)) { // 예외처리
-                            selectedColumn.items = []
+                          if (!column.items || !Array.isArray(column.items)) { // 예외처리
+                            column.items = []
                           }
-
-                          const newColumnItem = {
-                            id: generateColumnItemId(),
-                            content: 'TestItem'
-                          }
-
-                          selectedColumn.items.push(newColumnItem)
+                      
+                          const newColumnItem = getItem(index + 1, column.items[column.items.length - 1].number)
+                          column.items.push(newColumnItem)
 
                           setColumns(newColumns)
 
@@ -324,6 +345,7 @@ function App() {
         </div>
       </DragDropContext>
 
+      {/* 새로운 컬럼 생성 버튼 */}
       <button
         onClick={() => {
           const newItems = []
@@ -335,7 +357,8 @@ function App() {
           const newColumns = [...columns, newColumn]
           setColumns(newColumns)
         }}
-        style={{ padding: '40px', fontSize: '100px' }}>+</button>
+        style={{ padding: '40px', fontSize: '100px' }}>
+        +</button>
     </div>
 
 
