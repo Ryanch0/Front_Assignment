@@ -132,7 +132,7 @@ function App() {
           return;
         }
 
-        const sourceItems = [...sourceColumn.items] 
+        const sourceItems = sourceColumn.items
         const destColumn = newColumns.find(column => column.id === destDroppableId);
         const destItems = destColumn.items
         if (!destColumn) {
@@ -151,25 +151,41 @@ function App() {
           }
         })
 
-        console.log('wwww',filteredSourceItems)
 
+        console.log('wwww',filteredSourceItems)
+        console.log('swww',selectedItemsData)
 
 
         // const isDraggingDown = destIndex > sourceIndex; //드래그 방향에 따라 index처리가 달라지긴하는데,,        
-        const arr = []
+
         // draggableId와 같은 itemId를 가진 배열을 맨 앞으로두고, 나머지는 뒤로 배치
-
-
+        let draggableItem
+        const newSelectedItemsData = []
+        selectedItemsData.filter(item => {
+          if(item.id === draggableId) {
+            draggableItem = item
+          } else {
+            newSelectedItemsData.push(item)
+          }
+        })
+        newSelectedItemsData.unshift(draggableItem)
         
+
+        // destItems.splice(destIndex, 0, newSelectedItemsData)
+        
+        console.log(destItems)
+        console.log(sourceItems)
+        console.log(filteredSourceItems)
         // newSelectedItemsData.forEach((item, index) => {
         //   // const insertIndex = isDraggingDown ? destIndex  : destIndex + index;
-        //   destItems.splice(destIndex + index, 0, item);
+        //   // sourceItems.splice()
+        //   filteredSourceItems.splice(destIndex + index, 0, item);
+        //   console.log('push')
+
         // });
+        destItems.splice(destIndex, 0 ,...newSelectedItemsData)
 
-        const newSourceItems = [...selectedItemsData, ...filteredSourceItems]
-
-        console.log(newSourceItems)
-        sourceColumn.items = newSourceItems
+        // sourceColumn.items = filteredSourceItems;    
 
         setColumns(newColumns)
       }
