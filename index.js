@@ -161,7 +161,7 @@ function App() {
 
         // 짝수 아이템 이동불가 처리
         if (draggableItem?.number % 2 === 0 &&
-          sourceItems[finalDestIndex].number % 2 === 0
+          sourceItems[finalDestIndex]?.number % 2 === 0
         ) {
           console.log('짝수')
           setItemBlocked(false)
@@ -204,7 +204,6 @@ function App() {
           return;
         }
         // console.log(destItems.length) // 실제 길이는 10이지만, 9가 나오는 이유 : splicedItems로 인해 배열의 변화가 일어남
-
         // 4-1. 짝수 아이템은 다른 짝수 아이템 앞으로 이동 불가
         if (splicedItems[0].number % 2 === 0 &&
           destIndex < destItems.length &&  // destItems.length가 줄어들었기 때문에 마지막 인덱스 이상으로 접근 못하게 함
@@ -281,9 +280,8 @@ function App() {
 
         // // 짝수 아이템 이동불가 처리
         if (draggableItem?.number % 2 === 0 &&
-          destItems[destIndex].number % 2 === 0
+          destItems[destIndex]?.number % 2 === 0
         ) {
-          console.log('짝수')
           setItemBlocked(false)
           return;
         }
@@ -297,24 +295,23 @@ function App() {
         setSelectedItemIds([])
         return;
       }
-      else{
+      else {
         const newColumns = [...columns]
         const sourceColumn = newColumns.find(column => column.id === sourceDroppableId)
         if (!sourceColumn) {
           alert('cannot find target column')
           return;
         }
-  
-  
+
         const sourceItems = sourceColumn.items
         const splicedItems = sourceItems.splice(sourceIndex, 1) //소스 가져옴
         const destColumn = newColumns.find(column => column.id === destDroppableId)
         if (!destColumn) {
-        return;
+          return;
         }
-  
+
         const destItems = destColumn.items
-  
+
         // 4-2. 짝수 아이템은 다른 짝수 아이템 앞으로 이동 불가
         if (splicedItems[0].number % 2 === 0 &&
           destIndex < destItems.length &&  // destItems.length가 줄어들었기 때문에 마지막 인덱스 이상으로 접근 못하게 함
@@ -322,15 +319,12 @@ function App() {
           sourceItems.splice(sourceIndex, 0, splicedItems[0]) //splicedItems는 원본 배열(newColums)에서 빠진 상태. splice()는 원본을 수정한다.
           return; // 따라서 이 상태에서 배열 복구 없이 return만 한다면 원본 배열에서 splicedItems이 사라진 상태로 업데이트됨.
         }
-  
+
         destItems.splice(destIndex, 0, splicedItems[0])
-  
+
         setColumns(newColumns)
 
       }
-
-
-
 
     }
 
@@ -374,7 +368,7 @@ function App() {
     const slicedItems = sourceItems[sourceIndex] // splice는 원본 배열에 영향을 주므로 slice로 복사본 만듬
     const destItems = [...destColumn.items]
 
-    //같은 컬럼에서 짝수아이템이 다른 짝수 아이템 앞으로 갈 경우
+    // 동일 컬럼 간 짝수 제약 조건
     if (sourceDroppableId === destDroppableId) {
       const isDraggingDown = destIndex > sourceIndex // 드래그 방향에 따라 destItems[destIndex].number가 바뀜
       const adjacentIndex = isDraggingDown ? destIndex + 1 : destIndex // 아랫방향일경우와 윗방향일 경우
@@ -397,7 +391,7 @@ function App() {
 
 
     }
-    //같은 컬럼에서 짝수아이템이 다른 짝수 아이템 앞으로 갈 경우    
+    //다른 컬럼 간 짝수 제약 조건
     else if (sourceDroppableId !== destDroppableId) {
       const adjacentIndex = destIndex
       if (
