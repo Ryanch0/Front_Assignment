@@ -25,7 +25,6 @@ const generateColumnItemId = () => {
 }
 
 // style
-
 const ItemContainer = styled.div`
   background: ${props => props.$isDraggingOver ? 'lightblue' : 'lightgrey'};
   padding : 16px;
@@ -50,6 +49,10 @@ const DraggableItem = styled.div`
   ${props => props.$itemBlocked && `
     background : red;
   `}
+
+  ${props => props.$selected && `
+    border : 3px solid blue;
+  `}
 `
 
 
@@ -73,7 +76,9 @@ function App() {
   }
 
   const [containerBlocked, setContainerBlocked] = useState(false) // 첫번째 컬럼 -> 세번째 컬럼 block
-  const [itemBlocked, setItemBlocked] = useState(false)
+  const [itemBlocked, setItemBlocked] = useState(false) // 아이템 이동 불가 block
+  const [selectedItemIds, setSelectedItemIds] = useState([]) // 다중 선택시 선택된 아이템
+  const [currentColumn, setCurrentColumn] = useState(null)
   const [columns, setColumns] = useState([
     {
       id: generateColumnId(),
@@ -103,18 +108,72 @@ function App() {
       return;
     }
 
-    const { destination,
-      source
+    const {
+      destination,
+      source,
+      draggableId
     } = result
 
     const { droppableId: destDroppableId, index: destIndex } = destination
     const { droppableId: sourceDroppableId, index: sourceIndex } = source
 
-
+    // setSelectedItems([]) // drop후 다중선택 초기화
 
     // 1. 같은 DroppableId 내에 있는 경우
     // 1-1. 기존 방식의 splice를 이용한 setItem()
     if (destDroppableId === sourceDroppableId) {
+
+      // 5.같은 컬럼에서 다중 아이템이동 (2개 이상)
+      if (selectedItemIds.length > 1) {
+        const newColumns = [...columns]
+        const sourceColumn = newColumns.find(column => column.id === sourceDroppableId)
+        if (!sourceColumn) {
+          alert('cannot find target column')
+          return;
+        }
+
+        const sourceItems = [...sourceColumn.items] 
+        const destColumn = newColumns.find(column => column.id === destDroppableId);
+        const destItems = destColumn.items
+        if (!destColumn) {
+          return;
+        }
+        // // 다중 선택된 아이템들을 sourceItem에서 filtering
+        const selectedItemsData = sourceItems.filter(item => selectedItemIds.includes(item.id))
+
+        const newArray = []
+
+        const filteredSourceItems = sourceItems.filter(item => {
+          if(!selectedItemsData.includes(item)) {
+            return newArray.push(item)
+          } else {
+            return false
+          }
+        })
+
+        console.log('wwww',filteredSourceItems)
+
+
+
+        // const isDraggingDown = destIndex > sourceIndex; //드래그 방향에 따라 index처리가 달라지긴하는데,,        
+        const arr = []
+        // draggableId와 같은 itemId를 가진 배열을 맨 앞으로두고, 나머지는 뒤로 배치
+
+
+        
+        // newSelectedItemsData.forEach((item, index) => {
+        //   // const insertIndex = isDraggingDown ? destIndex  : destIndex + index;
+        //   destItems.splice(destIndex + index, 0, item);
+        // });
+
+        const newSourceItems = [...selectedItemsData, ...filteredSourceItems]
+
+        console.log(newSourceItems)
+        sourceColumn.items = newSourceItems
+
+        setColumns(newColumns)
+      }
+
       const newColumns = [...columns]
       const sourceColumn = newColumns.find(column => column.id === sourceDroppableId)
       if (!sourceColumn) {
@@ -123,7 +182,7 @@ function App() {
       }
 
       const sourceItems = sourceColumn.items
-      const splicedItems = sourceItems.splice(sourceIndex, 1)
+      const splicedItems = sourceItems.splice(sourceIndex, 1) // 자료구조 어레이
       const destColumn = newColumns.find(column => column.id === destDroppableId);
       const destItems = destColumn.items
       if (!destColumn) {
@@ -141,6 +200,8 @@ function App() {
         sourceItems.splice(sourceIndex, 0, splicedItems[0]) //splicedItems는 원본 배열(newColums)에서 빠진 상태. splice()는 원본을 수정한다.
         return; // 따라서 이 상태에서 배열 복구 없이 return만 한다면 원본 배열에서 splicedItems이 사라진 상태로 업데이트됨.
       }
+
+
       sourceItems.splice(destIndex, 0, splicedItems[0])
       setColumns(newColumns)
 
@@ -251,7 +312,7 @@ function App() {
         setItemBlocked(false)
       }
 
-      // 제자리 일때
+      // 제자리 일때 기본 상태
       if (sourceIndex === destIndex) {
         setItemBlocked(false)
       }
@@ -290,7 +351,7 @@ function App() {
             } = column
             return (
               <>
-                <Droppable droppableId={id}>
+                <Droppable droppableId={id} isDropDisabled={!selectedItemIds}>
                   {(provided, snapshot) => (
                     <ItemContainer
                       {...provided.droppableProps}
@@ -300,10 +361,28 @@ function App() {
                     >
 
                       {items?.map((item, index) => (
-                        <Draggable key={item.id} draggableId={item.id} index={index} >
+                        <Draggable key={item.id} draggableId={item.id} index={index}
+                          // 단일 아이템은 단일 드래그 가능, 그 외는 다중 선택 후 이동 시켜야 함.
+                          isDragDisabled={!selectedItemIds.includes(item.id) && selectedItemIds.length !== 0} >
                           {(provided, snapshot) => (
                             <>
                               <DraggableItem
+                                $selected={selectedItemIds.includes(item.id)}
+                                // 다중 드래그 선택 onClick
+                                onClick={() => {
+                                  if (currentColumn !== id) { // 다중 선택은 같은 컬럼 내에서만 가능
+                                    setCurrentColumn(id)
+                                    setSelectedItemIds([item.id])
+                                  }
+                                  else {
+                                    if (!selectedItemIds.includes(item.id)) {
+                                      setSelectedItemIds([...selectedItemIds, item.id])
+                                    } else {
+                                      const newSelectedItems = selectedItemIds.filter(x => x !== item.id)
+                                      setSelectedItemIds(newSelectedItems)
+                                    }
+                                  }
+                                }}
                                 ref={provided.innerRef}
                                 {...provided.draggableProps}
                                 {...provided.dragHandleProps}
@@ -327,7 +406,7 @@ function App() {
                           if (!column.items || !Array.isArray(column.items)) { // 예외처리
                             column.items = []
                           }
-                      
+
                           const newColumnItem = getItem(index + 1, column.items[column.items.length - 1].number)
                           column.items.push(newColumnItem)
 
