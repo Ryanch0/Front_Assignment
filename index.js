@@ -29,7 +29,7 @@ const ContainerWrap = styled.div`
   display: flex;
   flex-direction: row;
   align-items: center;
-  height: 100%;
+  height: calc(100% - 82px);
   /* width: 100%; */
   overflow: auto;
   background: #F5F5F5;
@@ -134,6 +134,21 @@ const MessageBox = styled.div`
   font-size: 15px;
   width: 370px;
 `
+
+const Header = styled.header`
+  background-color: #e6f7f7; 
+  padding: 20px;
+  text-align: center;
+  border-bottom: 2px solid #b2dfdb; 
+`;
+
+const Title = styled.h1`
+  font-size: 26px;
+  color: #00796b;
+  margin: 0;
+  padding-bottom: 10px;
+`;
+
 
 function App() {
 
@@ -567,6 +582,12 @@ function App() {
   }
 
   return (
+    <>
+    <Header>
+      <Title>
+      Drag & Drop Item Management
+      </Title>
+    </Header>
     <ContainerWrap>
       <DragDropContext onDragUpdate={onDragUpdate} onDragEnd={onDragEnd} onDragStart={onDragStart}>
         <div style={{ display: 'flex' }}>
@@ -685,6 +706,7 @@ function App() {
         </div>
       </DragDropContext>
     </ContainerWrap>
+    </>
   );
 }
 
