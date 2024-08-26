@@ -25,38 +25,144 @@ const generateColumnItemId = () => {
 }
 
 // style
+const ContainerWrap = styled.div`
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  height: 100%;
+  /* width: 100%; */
+  overflow: auto;
+  background: #F5F5F5;
+`
+
 const ItemContainer = styled.div`
-  background: ${props => props.$isDraggingOver ? 'lightblue' : 'lightgrey'};
+  background: ${props => props.$isDraggingOver ? '#C8E6C9' : '#FFFFFF'};
   padding : 16px;
-  width: 250px;
-  margin-left : 20px;
+  width: 230px;
+  margin-left : 10px;
+  margin-right: 10px;
+  border-radius: 12px;
+  border: 1px solid #D1D1D1;
 
   ${props => props.$containerBlocked && `
-    background : red;
+    background : #FFCDD2;
+    border : #EF9A9A;
   `}
   
 `
 
 const DraggableItem = styled.div`
+  position: relative;
   user-select: none;
   padding: 16px;
   margin: 0 0 8px 0 ;
-  background: grey;
+  background: #E8F5E9;
+  border: 1px solid #C8E6C9;
+  border-radius: 6px;
+  color: #333333;
+
+  /* ${props => props.$selected && `
+  background : lightgreen;
+  border : 1px solid black;
+  `} */
+/*
+  ${props => props.$multiDragging && `
+    background : grey;
+  `}
+
   ${props => props.$isDragging && `
     background : lightgreen;
   `}
-
+  
   ${props => props.$itemBlocked && `
     background : red;
-  `}
-
-  ${props => props.$selected && `
-    border : 3px solid blue;
-  `}
+  `} */
 `
 
+const AddItemButton = styled(DraggableItem)`
+  cursor: pointer;
+  background: #FFECB3;
+  color : #8D6E63; 
+  &:hover{
+      background: #FFD54F;
+      color: #FFFFFF;
+    }
+
+`
+
+const AddColumnButton = styled(ItemContainer)`
+  background: #FFCCBC;
+  font-size: 100px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #6D4C41;
+  cursor: pointer;
+  
+  &:hover {
+    background: #FFAB91;
+    color: #FFFFFF;
+  }
+  
+`
+
+const SumOfItems = styled.div`
+  position: absolute;
+  right: -10;
+  top : -10;
+  width: 25px;
+  height: 25px;
+  background: #FF6F61;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  border-radius: 50%;
+`
 
 function App() {
+
+  // 조건문이 복잡해서 
+  const getItemStyle = useCallback((basicStyle, selectedItemIds, itemId, currentDraggingId, itemBlocked) => {
+    console.log(currentDraggingId)
+    if (currentDraggingId === itemId && !itemBlocked) {
+      return {
+        ...basicStyle,
+        background: '#B2DFDB',
+        boxShadow: '0 4px 8px rgba(0, 150, 136, 0.2)',
+        border: '1px solid #80CBC4',
+        opacity: 0.9
+      }
+    }
+    if (currentDraggingId == itemId && itemBlocked) {
+      return {
+        ...basicStyle,
+        background: '#FFCDD2',
+        border: '1px solid #EF9A9A',
+        opacity: 0.9,
+      }
+    }
+    if (selectedItemIds.includes(itemId)) {
+      console.log(itemId, currentDraggingId)
+      if (currentDraggingId && currentDraggingId !== itemId) {
+        return {
+          ...basicStyle,
+          background: '#B3E5FC',
+          color : '#0288D1',
+          opacity: 0.8,
+        }
+      }
+      else {
+        return {
+          ...basicStyle,
+          background: '#A5D6A7',
+          border: '1px solid #66BB6A'
+        }
+      }
+    }
+    return basicStyle
+  }, [])
+
 
   const getItems = (num, count) =>
     Array.from({ length: count }, (num, k) => k).map((k) => ({
@@ -78,30 +184,32 @@ function App() {
   const [itemBlocked, setItemBlocked] = useState(false) // 아이템 이동 불가 block
   const [selectedItemIds, setSelectedItemIds] = useState([]) // 다중 선택시 선택된 아이템
   const [currentColumn, setCurrentColumn] = useState(null)
+  const [currentDraggingId, setCurrentDraggingId] = useState('')
   const [columns, setColumns] = useState([
     {
       id: generateColumnId(),
-      items: getItems(1, 10)
+      items: getItems(1, 5)
     },
 
     {
       id: generateColumnId(),
-      items: getItems(2, 10)
+      items: []
     },
 
     {
       id: generateColumnId(),
-      items: getItems(3, 10)
+      items: []
     },
 
     {
       id: generateColumnId(),
-      items: getItems(4, 10)
+      items: []
     }
   ])
 
 
   const onDragEnd = (result) => {
+    setCurrentDraggingId(null)
     console.log(result)
     if (!result.destination || !result.source) {
       return;
@@ -120,7 +228,7 @@ function App() {
 
     // 1. 같은 DroppableId 내에 있는 경우
     // 1-1. 기존 방식의 splice를 이용한 setItem()
-    if (destDroppableId === sourceDroppableId) {
+    if (sourceDroppableId === destDroppableId) {
 
       const newColumns = [...columns]
       const sourceColumn = newColumns.find(column => column.id === sourceDroppableId)
@@ -165,6 +273,8 @@ function App() {
         ) {
           console.log('짝수')
           setItemBlocked(false)
+
+          setSelectedItemIds([])
           return;
         }
 
@@ -194,6 +304,7 @@ function App() {
         // }
         setColumns(newColumns)
         setSelectedItemIds([])
+
         return;
       } else {
         const sourceItems = sourceColumn.items
@@ -203,6 +314,7 @@ function App() {
         if (!destColumn) {
           return;
         }
+
         // console.log(destItems.length) // 실제 길이는 10이지만, 9가 나오는 이유 : splicedItems로 인해 배열의 변화가 일어남
         // 4-1. 짝수 아이템은 다른 짝수 아이템 앞으로 이동 불가
         if (splicedItems[0].number % 2 === 0 &&
@@ -218,9 +330,9 @@ function App() {
 
         sourceItems.splice(destIndex, 0, splicedItems[0])
         setColumns(newColumns)
+        setSelectedItemIds([])
 
       }
-
     }
 
     // 2. 다른 DroppableId 간의 이동일 경우
@@ -283,6 +395,8 @@ function App() {
           destItems[destIndex]?.number % 2 === 0
         ) {
           setItemBlocked(false)
+          setSelectedItemIds([])
+
           return;
         }
 
@@ -317,25 +431,41 @@ function App() {
           destIndex < destItems.length &&  // destItems.length가 줄어들었기 때문에 마지막 인덱스 이상으로 접근 못하게 함
           destItems[destIndex].number % 2 === 0) {
           sourceItems.splice(sourceIndex, 0, splicedItems[0]) //splicedItems는 원본 배열(newColums)에서 빠진 상태. splice()는 원본을 수정한다.
+          setSelectedItemIds([])
+
           return; // 따라서 이 상태에서 배열 복구 없이 return만 한다면 원본 배열에서 splicedItems이 사라진 상태로 업데이트됨.
         }
 
         destItems.splice(destIndex, 0, splicedItems[0])
 
         setColumns(newColumns)
-
+        setSelectedItemIds([])
       }
 
     }
-
   }
-
-
 
   const onDragStart = (start) => {
     setContainerBlocked(false)
     console.log(start.draggableId)
     setItemBlocked(false)
+    console.log(start)
+
+    if (!start.source) {
+      return
+    }
+
+    const {
+      source,
+      draggableId
+    } = start
+
+    const { droppableId: sourceDroppableId, index: sourceIndex } = source
+
+
+    console.log('dragging right now')
+    setCurrentDraggingId(draggableId)
+
   }
 
 
@@ -359,6 +489,10 @@ function App() {
         setContainerBlocked(false)
       }
 
+    }
+
+    if(selectedItemIds.length > 1) {
+      console.log('large')
     }
 
     const newColumns = [...columns];
@@ -408,9 +542,8 @@ function App() {
 
   }
 
-
   return (
-    <div style={{ display: 'flex' }}>
+    <ContainerWrap>
       <DragDropContext onDragUpdate={onDragUpdate} onDragEnd={onDragEnd} onDragStart={onDragStart}>
         <div style={{ display: 'flex' }}>
           {columns?.map((column, index) => {
@@ -431,15 +564,13 @@ function App() {
                       $isDraggingOver={snapshot.isDraggingOver}
                       $containerBlocked={containerBlocked && snapshot.isDraggingOver}
                     >
-
                       {items?.map((item, index) => (
                         <Draggable key={item.id} draggableId={item.id} index={index}
                           // 단일 아이템은 단일 드래그 가능, 그 외는 다중 선택 후 이동 시켜야 함.
-                          isDragDisabled={!selectedItemIds.includes(item.id) && selectedItemIds.length !== 0} >
+                          isDragDisabled={!selectedItemIds?.includes(item.id) && selectedItemIds.length !== 0} >
                           {(provided, snapshot) => (
                             <>
                               <DraggableItem
-                                $selected={selectedItemIds.includes(item.id)}
                                 // 다중 드래그 선택 onClick
                                 onClick={() => {
                                   if (currentColumn !== id) { // 다중 선택은 같은 컬럼 내에서만 가능
@@ -458,10 +589,17 @@ function App() {
                                 ref={provided.innerRef}
                                 {...provided.draggableProps}
                                 {...provided.dragHandleProps}
-                                $isDragging={snapshot.isDragging}
-                                $itemBlocked={itemBlocked && snapshot.isDragging}
-                                style={provided.draggableProps.style}
+                                // $selected={selectedItemIds?.includes(item.id)}
+                                // $isDragging={snapshot.isDragging}
+                                // $multiDragging={currentDraggingId &&
+                                //    selectedItemIds?.includes(item.id) &&
+                                //     item.id !== currentDraggingId}
+                                // $itemBlocked={itemBlocked && snapshot.isDragging}
+                                style={getItemStyle(provided.draggableProps.style, selectedItemIds, item.id, currentDraggingId, itemBlocked)}
                               >
+                                {selectedItemIds.length > 1 && currentDraggingId === item.id && (
+                                  <SumOfItems>{selectedItemIds.length}</SumOfItems>
+                                )}
                                 {item.content}
                               </DraggableItem>
                             </>
@@ -471,7 +609,7 @@ function App() {
                       {provided.placeholder}
 
                       {/* 단일 아이템 추가 버튼 */}
-                      <button
+                      <AddItemButton
                         onClick={() => {
                           const newColumns = [...columns]
 
@@ -479,40 +617,39 @@ function App() {
                             column.items = []
                           }
 
-                          const newColumnItem = getItem(index + 1, column.items[column.items.length - 1].number)
-                          column.items.push(newColumnItem)
-
+                          if (column.items.length === 0) {
+                            const newColumnItem = getItem(index + 1, 0)
+                            column.items.push(newColumnItem)
+                          } else {
+                            const newColumnItem = getItem(index + 1, column.items[column.items.length - 1].number)
+                            column.items.push(newColumnItem)
+                          }
                           setColumns(newColumns)
 
                         }}
-                      >+</button>
+                      >Add Item</AddItemButton>
                     </ItemContainer>
                   )}
                 </Droppable>
               </>
             )
-
           })}
+          {/* 새로운 컬럼 생성 버튼 */}
+          <AddColumnButton
+            onClick={() => {
+              const newItems = []
+              const newColumn = {
+                id: generateColumnId(),
+                items: newItems
+              }
+              const newColumns = [...columns, newColumn]
+              setColumns(newColumns)
+            }}
+          >
+            +</AddColumnButton>
         </div>
       </DragDropContext>
-
-      {/* 새로운 컬럼 생성 버튼 */}
-      <button
-        onClick={() => {
-          const newItems = []
-          const newColumn = {
-            id: generateColumnId(),
-            items: newItems
-          }
-
-          const newColumns = [...columns, newColumn]
-          setColumns(newColumns)
-        }}
-        style={{ padding: '40px', fontSize: '100px' }}>
-        +</button>
-    </div>
-
-
+    </ContainerWrap>
   );
 }
 
