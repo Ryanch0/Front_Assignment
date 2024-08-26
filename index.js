@@ -106,7 +106,7 @@ const AddColumnButton = styled(ItemContainer)`
   
 `
 
-const SumOfItems = styled.div`
+const SumOfSelectedItems = styled.div`
   position: absolute;
   right: -10;
   top : -10;
@@ -120,11 +120,34 @@ const SumOfItems = styled.div`
   border-radius: 50%;
 `
 
+const MessageBox = styled.div`
+  position: absolute;
+  left : 0;
+  bottom : -39;
+  padding: 4px 8px;
+  color: #D64550;
+  border: 1px solid #D8DEE3;
+  border-radius: 8px;
+  font-weight: bold;
+  background: ${props => props.$deniedMessage ? '#F2F5F7' : '#E1F7DF'};
+  font-family: sans-serif;
+  font-size: 15px;
+  width: 370px;
+`
+
 function App() {
 
   // 조건문이 복잡해서 
-  const getItemStyle = useCallback((basicStyle, selectedItemIds, itemId, currentDraggingId, itemBlocked) => {
+  const getItemStyle = useCallback((basicStyle, selectedItemIds, itemId, currentDraggingId, itemBlocked, containerBlocked) => {
     console.log(currentDraggingId)
+    if (currentDraggingId == itemId && containerBlocked) {
+      return {
+        ...basicStyle,
+        background: '#FFCDD2',
+        border: '1px solid #EF9A9A',
+        opacity: 0.9,
+      }
+    }
     if (currentDraggingId === itemId && !itemBlocked) {
       return {
         ...basicStyle,
@@ -148,7 +171,7 @@ function App() {
         return {
           ...basicStyle,
           background: '#B3E5FC',
-          color : '#0288D1',
+          color: '#0288D1',
           opacity: 0.8,
         }
       }
@@ -167,7 +190,7 @@ function App() {
   const getItems = (num, count) =>
     Array.from({ length: count }, (num, k) => k).map((k) => ({
       id: generateColumnItemId(),
-      content: `item${num} ${k + 1}`,
+      content: `list${num} item${k + 1}`,
       number: k + 1
     }));
 
@@ -175,7 +198,7 @@ function App() {
   const getItem = (num, count) => {
     return {
       id: generateColumnItemId(),
-      content: `item${num} ${count + 1}`,
+      content: `list${num} item${count + 1}`,
       number: count + 1
     }
   }
@@ -345,6 +368,7 @@ function App() {
       if (columns.length >= 3) {
         if (sourceDroppableId == columns[0].id && destDroppableId == columns[2].id) {
           setContainerBlocked(false) // drag끝난 뒤 state 초기화
+
           return; //이 부분은 단순 조건 검사이기 때문에 특정 조건에서 drop을 아예 차단하고 있기 때문
         }
       }
@@ -491,7 +515,7 @@ function App() {
 
     }
 
-    if(selectedItemIds.length > 1) {
+    if (selectedItemIds.length > 1) {
       console.log('large')
     }
 
@@ -595,12 +619,23 @@ function App() {
                                 //    selectedItemIds?.includes(item.id) &&
                                 //     item.id !== currentDraggingId}
                                 // $itemBlocked={itemBlocked && snapshot.isDragging}
-                                style={getItemStyle(provided.draggableProps.style, selectedItemIds, item.id, currentDraggingId, itemBlocked)}
+                                style={getItemStyle(provided.draggableProps.style, selectedItemIds, item.id, currentDraggingId, itemBlocked, containerBlocked)}
                               >
                                 {selectedItemIds.length > 1 && currentDraggingId === item.id && (
-                                  <SumOfItems>{selectedItemIds.length}</SumOfItems>
+                                  <SumOfSelectedItems>
+                                    {selectedItemIds.length}
+                                  </SumOfSelectedItems>
                                 )}
                                 {item.content}
+
+                                {currentDraggingId === item.id && (containerBlocked || itemBlocked) && (
+                                  <MessageBox $deniedMessage={containerBlocked || itemBlocked}>
+                                    {containerBlocked
+                                      ? "🚫 첫 번째 칼럼에서 세 번째 칼럼으로는 이동할 수 없습니다."
+                                      : "🚫 짝수 아이템은 다른 짝수 아이템 앞으로 이동할 수 없습니다."}
+                                  </MessageBox>
+                                )}
+
                               </DraggableItem>
                             </>
                           )}
