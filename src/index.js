@@ -332,6 +332,7 @@ function App() {
         return;
       }
       const destItems = [...destColumn.items]
+      
 
       // 5.1 다른컬럼으로 다중아이템 이동 (2개이상)
       if (selectedItemIds.length > 1) {
