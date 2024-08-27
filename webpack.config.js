@@ -1,12 +1,12 @@
 const path = require('path');
+const CopyWebpackPlugin = require('copy-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = {
   entry: './src/index.js',
   output: {
-    path: path.resolve(__dirname, 'dist'),
+    path: path.resolve(__dirname, 'build'),
     filename: 'bundle.js',
-    publicPath: '/'
   },
   mode: 'development',
 
@@ -44,6 +44,12 @@ module.exports = {
     new HtmlWebpackPlugin({
       template: './index.html',
       filename: 'index.html',
+    }),
+
+    new CopyWebpackPlugin({
+      patterns: [
+        { from: 'public', to: ''}, // public 폴더의 파일들을 build 폴더로 복사
+      ],
     }),
   ],
   devServer: {
