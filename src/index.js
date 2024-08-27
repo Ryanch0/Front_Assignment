@@ -1,115 +1,32 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
-import styled from "styled-components";
+import styled, { keyframes } from "styled-components";
+import { AddItemButton, DraggableItem } from "./atomic/molecules/ListItem";
+import { AddColumnButton, Column } from "./atomic/molecules/Columns";
+import { columnIdSet, columnItemIdSet, generateColumnId, generateColumnItemId, insertColumnIds, insertColumnItemIds, resetAllSets } from "./utils/uuid";
+import Toast from "./atomic/molecules/Toast";
 
-const columnIdSet = new Set()
-const columnItemIdSet = new Set()
-
-const generateColumnId = () => {
-  const uuid = 'column' + parseInt(Math.random() * 100000)
-  if (columnIdSet.has(uuid)) {
-    return generateColumnId()
-  }
-  columnIdSet.add(uuid)
-  return uuid
-}
-
-const generateColumnItemId = () => {
-  const uuid = 'item' + parseInt(Math.random() * 100000)
-  if (columnItemIdSet.has(uuid)) {
-    return generateColumnItemId()
-  }
-  columnItemIdSet.add(uuid)
-  return uuid
-}
+const SAVED_COLUMN_DATA = 'SAVED_COLUMN_DATA'
 
 // style
 const ContainerWrap = styled.div`
   display: flex;
   flex-direction: row;
-  align-items: center;
-  height: calc(100% - 82px);
+  height: calc(100vh - 82px);
+  padding: 20px;
   /* width: 100%; */
   overflow: auto;
   background: #F5F5F5;
 `
 
-const ItemContainer = styled.div`
-  background: ${props => props.$isDraggingOver ? '#C8E6C9' : '#FFFFFF'};
-  padding : 16px;
-  width: 230px;
-  margin-left : 10px;
-  margin-right: 10px;
-  border-radius: 12px;
-  border: 1px solid #D1D1D1;
 
-  ${props => props.$containerBlocked && `
-    background : #FFCDD2;
-    border : #EF9A9A;
-  `}
-  
-`
-
-const DraggableItem = styled.div`
-  position: relative;
-  user-select: none;
-  padding: 16px;
-  margin: 0 0 8px 0 ;
-  background: #E8F5E9;
-  border: 1px solid #C8E6C9;
-  border-radius: 6px;
-  color: #333333;
-
-  /* ${props => props.$selected && `
-  background : lightgreen;
-  border : 1px solid black;
-  `} */
-/*
-  ${props => props.$multiDragging && `
-    background : grey;
-  `}
-
-  ${props => props.$isDragging && `
-    background : lightgreen;
-  `}
-  
-  ${props => props.$itemBlocked && `
-    background : red;
-  `} */
-`
-
-const AddItemButton = styled(DraggableItem)`
-  cursor: pointer;
-  background: #FFECB3;
-  color : #8D6E63; 
-  &:hover{
-      background: #FFD54F;
-      color: #FFFFFF;
-    }
-
-`
-
-const AddColumnButton = styled(ItemContainer)`
-  background: #FFCCBC;
-  font-size: 100px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: #6D4C41;
-  cursor: pointer;
-  
-  &:hover {
-    background: #FFAB91;
-    color: #FFFFFF;
-  }
-  
-`
 
 const SumOfSelectedItems = styled.div`
   position: absolute;
-  right: -10;
-  top : -10;
+  right: 0;
+  top : 0;
+  bottom: 20;
   width: 25px;
   height: 25px;
   background: #FF6F61;
@@ -123,7 +40,7 @@ const SumOfSelectedItems = styled.div`
 const MessageBox = styled.div`
   position: absolute;
   left : 0;
-  bottom : -39;
+  bottom : -27px;
   padding: 4px 8px;
   color: #D64550;
   border: 1px solid #D8DEE3;
@@ -132,22 +49,37 @@ const MessageBox = styled.div`
   background: ${props => props.$deniedMessage ? '#F2F5F7' : '#E1F7DF'};
   font-family: sans-serif;
   font-size: 15px;
-  width: 370px;
+  width: 400px;
 `
 
 const Header = styled.header`
+  display: flex;
+  align-items: center;
   background-color: #e6f7f7; 
   padding: 20px;
   text-align: center;
-  border-bottom: 2px solid #b2dfdb; 
+  border-bottom: 2px solid #b2dfdb;
+  justify-content: space-between;
 `;
 
 const Title = styled.h1`
   font-size: 26px;
   color: #00796b;
   margin: 0;
-  padding-bottom: 10px;
 `;
+
+const SaveButton = styled.button`
+  cursor: pointer;
+  margin-left: 4px;
+  padding: 12px;
+  border-radius: 8px;
+  background: white;
+  
+  
+  color: #333;
+  border: 1px solid #C8E6C9;
+  /* margin-left: 12px; */
+`
 
 
 function App() {
@@ -205,7 +137,7 @@ function App() {
   const getItems = (num, count) =>
     Array.from({ length: count }, (num, k) => k).map((k) => ({
       id: generateColumnItemId(),
-      content: `list${num} item${k + 1}`,
+      content: `List${num} Item${k + 1}`,
       number: k + 1
     }));
 
@@ -213,7 +145,7 @@ function App() {
   const getItem = (num, count) => {
     return {
       id: generateColumnItemId(),
-      content: `list${num} item${count + 1}`,
+      content: `List${num} Item${count + 1}`,
       number: count + 1
     }
   }
@@ -223,28 +155,27 @@ function App() {
   const [selectedItemIds, setSelectedItemIds] = useState([]) // 다중 선택시 선택된 아이템
   const [currentColumn, setCurrentColumn] = useState(null)
   const [currentDraggingId, setCurrentDraggingId] = useState('')
-  const [columns, setColumns] = useState([
-    {
-      id: generateColumnId(),
-      items: getItems(1, 5)
-    },
 
-    {
-      id: generateColumnId(),
-      items: []
-    },
+  const [toastText, setToastText] = useState(null)
+  
 
-    {
-      id: generateColumnId(),
-      items: []
-    },
+  const openToast = (text) => {
+    setToastText(text)
+    setTimeout(() => setToastText(null), 2000)
+  }
+  
+  const [columns, setColumns] = useState([])
+  
+  const onClickSaveButton = () => {
+    window.localStorage.setItem(SAVED_COLUMN_DATA, JSON.stringify(columns))
+    openToast('데이터가 저장되었습니다')
+  }
 
-    {
-      id: generateColumnId(),
-      items: []
-    }
-  ])
-
+  const onClickResetButton = () => {
+    window.localStorage.removeItem(SAVED_COLUMN_DATA)
+    setupDefaultColumns()
+    openToast('데이터가 초기화되었습니다')
+  }
 
   const onDragEnd = (result) => {
     setCurrentDraggingId(null)
@@ -581,131 +512,202 @@ function App() {
 
   }
 
+  const onClickItem = useCallback((currentColumn, columnId, itemId, selectedItemIds) => {
+    if (currentColumn !== columnId) { // 다중 선택은 같은 컬럼 내에서만 가능
+      setCurrentColumn(columnId)
+      setSelectedItemIds([itemId])
+    }
+    else {
+      if (!selectedItemIds.includes(itemId)) {
+        setSelectedItemIds([...selectedItemIds, itemId])
+      } else {
+        const newSelectedItems = selectedItemIds.filter(x => x !== itemId)
+        setSelectedItemIds(newSelectedItems)
+      }
+    }
+  }, [])
+
+  const addItemButton = (columnIndex) => {
+    const newColumns = [...columns]
+    const column = newColumns[columnIndex]
+    if (!column.items || !Array.isArray(column.items)) { // 예외처리
+      column.items = []
+    }
+    if (column.items.length === 0) {
+      const newColumnItem = getItem(columnIndex + 1, 0)
+      column.items.push(newColumnItem)
+    } else {
+      const newColumnItem = getItem(columnIndex + 1, column.items[column.items.length - 1].number)
+      column.items.push(newColumnItem)
+    }
+    setColumns(newColumns)
+  }
+
+  const setupDefaultColumns = () => {
+    resetAllSets()
+    setColumns([
+      {
+        id: generateColumnId(),
+        items: getItems(1, 5)
+      },
+
+      {
+        id: generateColumnId(),
+        items: []
+      },
+
+      {
+        id: generateColumnId(),
+        items: []
+      },
+
+      {
+        id: generateColumnId(),
+        items: []
+      }
+    ])
+  }
+  const initializeColumns = () => {
+    try {
+      const savedColumnStr = window.localStorage.getItem(SAVED_COLUMN_DATA)
+      console.log(savedColumnStr)
+      if (!savedColumnStr || savedColumnStr === '') {
+        throw new Error('저장된 데이터가 없습니다')
+      }
+        
+      
+      const columns = JSON.parse(savedColumnStr)
+      const columnIds = []
+      const columnItemIds = []
+      columns.forEach(column => {
+        const {
+          items,
+          id
+        } = column
+        columnIds.push(id)
+        items.forEach(item => columnItemIds.push(item.id))
+      })
+      insertColumnIds(columnIds)
+      insertColumnItemIds(columnItemIds)
+      console.log(columnIdSet, columnItemIdSet)
+      setColumns(columns)
+      
+    } catch (e) {
+      console.log(e)
+      setupDefaultColumns()
+    }
+  }
+  useEffect(() => {
+    initializeColumns()
+    
+  }, [])
+
   return (
     <>
-    <Header>
-      <Title>
-      Drag & Drop Item Management
-      </Title>
-    </Header>
-    <ContainerWrap>
-      <DragDropContext onDragUpdate={onDragUpdate} onDragEnd={onDragEnd} onDragStart={onDragStart}>
-        <div style={{ display: 'flex' }}>
-          {columns?.map((column, index) => {
-            if (!column) {
-              return;
-            }
-            const {
-              id,
-              items
-            } = column
-            return (
-              <>
-                <Droppable droppableId={id} isDropDisabled={!selectedItemIds}>
-                  {(provided, snapshot) => (
-                    <ItemContainer
-                      {...provided.droppableProps}
-                      ref={provided.innerRef}
-                      $isDraggingOver={snapshot.isDraggingOver}
-                      $containerBlocked={containerBlocked && snapshot.isDraggingOver}
-                    >
-                      {items?.map((item, index) => (
-                        <Draggable key={item.id} draggableId={item.id} index={index}
-                          // 단일 아이템은 단일 드래그 가능, 그 외는 다중 선택 후 이동 시켜야 함.
-                          isDragDisabled={!selectedItemIds?.includes(item.id) && selectedItemIds.length !== 0} >
-                          {(provided, snapshot) => (
-                            <>
-                              <DraggableItem
-                                // 다중 드래그 선택 onClick
-                                onClick={() => {
-                                  if (currentColumn !== id) { // 다중 선택은 같은 컬럼 내에서만 가능
-                                    setCurrentColumn(id)
-                                    setSelectedItemIds([item.id])
-                                  }
-                                  else {
-                                    if (!selectedItemIds.includes(item.id)) {
-                                      setSelectedItemIds([...selectedItemIds, item.id])
-                                    } else {
-                                      const newSelectedItems = selectedItemIds.filter(x => x !== item.id)
-                                      setSelectedItemIds(newSelectedItems)
-                                    }
-                                  }
-                                }}
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                {...provided.dragHandleProps}
-                                // $selected={selectedItemIds?.includes(item.id)}
-                                // $isDragging={snapshot.isDragging}
-                                // $multiDragging={currentDraggingId &&
-                                //    selectedItemIds?.includes(item.id) &&
-                                //     item.id !== currentDraggingId}
-                                // $itemBlocked={itemBlocked && snapshot.isDragging}
-                                style={getItemStyle(provided.draggableProps.style, selectedItemIds, item.id, currentDraggingId, itemBlocked, containerBlocked)}
-                              >
-                                {selectedItemIds.length > 1 && currentDraggingId === item.id && (
-                                  <SumOfSelectedItems>
-                                    {selectedItemIds.length}
-                                  </SumOfSelectedItems>
-                                )}
-                                {item.content}
-
-                                {currentDraggingId === item.id && (containerBlocked || itemBlocked) && (
-                                  <MessageBox $deniedMessage={containerBlocked || itemBlocked}>
-                                    {containerBlocked
-                                      ? "🚫 첫 번째 칼럼에서 세 번째 칼럼으로는 이동할 수 없습니다."
-                                      : "🚫 짝수 아이템은 다른 짝수 아이템 앞으로 이동할 수 없습니다."}
-                                  </MessageBox>
-                                )}
-
-                              </DraggableItem>
-                            </>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-
-                      {/* 단일 아이템 추가 버튼 */}
-                      <AddItemButton
-                        onClick={() => {
-                          const newColumns = [...columns]
-
-                          if (!column.items || !Array.isArray(column.items)) { // 예외처리
-                            column.items = []
-                          }
-
-                          if (column.items.length === 0) {
-                            const newColumnItem = getItem(index + 1, 0)
-                            column.items.push(newColumnItem)
-                          } else {
-                            const newColumnItem = getItem(index + 1, column.items[column.items.length - 1].number)
-                            column.items.push(newColumnItem)
-                          }
-                          setColumns(newColumns)
-
-                        }}
-                      >Add Item</AddItemButton>
-                    </ItemContainer>
-                  )}
-                </Droppable>
-              </>
-            )
-          })}
-          {/* 새로운 컬럼 생성 버튼 */}
-          <AddColumnButton
-            onClick={() => {
-              const newItems = []
-              const newColumn = {
-                id: generateColumnId(),
-                items: newItems
-              }
-              const newColumns = [...columns, newColumn]
-              setColumns(newColumns)
-            }}
-          >
-            +</AddColumnButton>
+      <Header>
+        <Title>
+          Drag & Drop Item Management
+        </Title>
+        <div>
+        <SaveButton onClick={onClickResetButton}>초기화</SaveButton>
+        <SaveButton
+         onClick={onClickSaveButton}
+         style={{background : '#00796b', color : 'white'}}
+         >저장</SaveButton>
         </div>
-      </DragDropContext>
-    </ContainerWrap>
+      </Header>
+      <ContainerWrap>
+        <DragDropContext onDragUpdate={onDragUpdate} onDragEnd={onDragEnd} onDragStart={onDragStart}>
+          <div style={{ display: 'flex' }}>
+            {columns?.map((column, columnIndex) => {
+              if (!column) {
+                return;
+              }
+              const {
+                id: columnId,
+                items
+              } = column
+              return (
+                <>
+                  <Droppable droppableId={columnId} isDropDisabled={!selectedItemIds}>
+                    {(provided, snapshot) => (
+                      <Column
+                        {...provided.droppableProps}
+                        ref={provided.innerRef}
+                        $isDraggingOver={snapshot.isDraggingOver}
+                        $containerBlocked={containerBlocked && snapshot.isDraggingOver}
+                      >
+                        {items?.map((item, index) => (
+                          <Draggable key={item.id} draggableId={item.id} index={index}
+                            // 단일 아이템은 단일 드래그 가능, 그 외는 다중 선택 후 이동 시켜야 함.
+                            isDragDisabled={!selectedItemIds?.includes(item.id) && selectedItemIds.length !== 0} >
+                            {(provided, snapshot) => {
+                              const isDraggingItem = currentDraggingId === item.id
+                              const isBlocked = containerBlocked || itemBlocked
+                              return (
+                                <DraggableItem
+                                  // 다중 드래그 선택 onClick
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  onClick={() => onClickItem(currentColumn, columnId, item.id, selectedItemIds)}
+                                  style={getItemStyle(provided.draggableProps.style, selectedItemIds, item.id, currentDraggingId, itemBlocked, containerBlocked)}
+                                >
+                                  {selectedItemIds.length > 1 && isDraggingItem && (
+                                    <SumOfSelectedItems>
+                                      {selectedItemIds.length}
+                                    </SumOfSelectedItems>
+                                  )}
+                                  {item.content}
+
+                                  {isDraggingItem && isBlocked && (
+                                    <MessageBox $deniedMessage={isBlocked}>
+                                      {containerBlocked
+                                        ? "🚫 첫 번째 칼럼에서 세 번째 칼럼으로는 이동할 수 없습니다."
+                                        : "🚫 짝수 아이템은 다른 짝수 아이템 앞으로 이동할 수 없습니다."}
+                                    </MessageBox>
+                                  )}
+
+                                </DraggableItem>
+                              )
+                            }}
+                          </Draggable>
+                        ))}
+                        {provided.placeholder}
+
+                        {/* 단일 아이템 추가 버튼 */}
+                        <AddItemButton
+                          onClick={() => addItemButton(columnIndex)}
+                        >
+                          + Add Item
+                        </AddItemButton>
+                      </Column>
+                    )}
+                  </Droppable>
+                </>
+              )
+            })}
+            {/* 새로운 컬럼 생성 버튼 */}
+            <AddColumnButton
+              onClick={() => {
+                const newItems = []
+                const newColumn = {
+                  id: generateColumnId(),
+                  items: newItems
+                }
+                const newColumns = [...columns, newColumn]
+                setColumns(newColumns)
+              }}
+            >
+              + <br />Add Column</AddColumnButton>
+          </div>
+        </DragDropContext>
+      </ContainerWrap>
+      {
+        toastText && (
+          <Toast>{toastText}</Toast>
+        )
+      }
     </>
   );
 }

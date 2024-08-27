@@ -2,7 +2,7 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = {
-  entry: './index.js',
+  entry: './src/index.js',
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: 'bundle.js',
@@ -50,13 +50,14 @@ module.exports = {
     host: '0.0.0.0',
     static: [
       path.join(__dirname, 'dist'),
-],
+      path.join(__dirname, 'public'),
+    ],
     compress: true,
     port: 9000,
     historyApiFallback: true,
     client: {
       overlay: false,
-      
+
     }
   }
 };
