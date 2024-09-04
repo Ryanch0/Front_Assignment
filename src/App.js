@@ -419,7 +419,7 @@ function App() {
   // 드래그 중(ing) 발생하는 이벤트,  예외처리 css처리 함수
   const onDragUpdate = (result) => {
     if (!result.destination || !result.source) {
-      return;
+      return; // 예외처리
     }
 
     const { destination,
@@ -431,7 +431,7 @@ function App() {
 
     if (columns.length >= 3) {
       if (sourceDroppableId == columns[0].id && destDroppableId == columns[2].id) {
-        setContainerBlocked(true)
+        setContainerBlocked(true) // 첫째 컬럼에서 세번째 컬럼으로 이동하는 중에 css 예외처리 발생
       } else {
         setContainerBlocked(false)
       }
@@ -449,7 +449,7 @@ function App() {
     // 동일 컬럼 간 짝수 제약 조건
     if (sourceDroppableId === destDroppableId) {
       const isDraggingDown = destIndex > sourceIndex // 드래그 방향에 따라 destItems[destIndex].number가 바뀜
-      const adjacentIndex = isDraggingDown ? destIndex + 1 : destIndex // 아랫방향일경우와 윗방향일 경우
+      const adjacentIndex = isDraggingDown ? destIndex + 1 : destIndex // 아랫방향일경우와 윗방향일 경우, 사실 위에 onDragEnd에서 명시한 finalDestIndex와 동일함
 
       if (
         slicedItems.number % 2 === 0 &&
@@ -457,7 +457,7 @@ function App() {
         adjacentIndex < destItems.length &&
         destItems[adjacentIndex]?.number % 2 === 0 // 드래그 방향에 따라 dest아이템이 짝수인지 아닌지 판단
       ) {
-        setItemBlocked(true)
+        setItemBlocked(true) // 짝수 제약조건 css 활성화
       } else {
         setItemBlocked(false)
       }
@@ -469,6 +469,7 @@ function App() {
 
 
     }
+
     //다른 컬럼 간 짝수 제약 조건
     else if (sourceDroppableId !== destDroppableId) {
       const adjacentIndex = destIndex
@@ -486,31 +487,33 @@ function App() {
 
   }
 
+  // 성능 최적화 useCallback사용 
   const onClickItem = useCallback((currentColumn, columnId, itemId, selectedItemIds) => {
     if (currentColumn !== columnId) { // 다중 선택은 같은 컬럼 내에서만 가능
-      setCurrentColumn(columnId)
-      setSelectedItemIds([itemId])
+      setCurrentColumn(columnId) // currentColumn은 기본적으로 null 이므로 일단 클릭하면 추가
+      setSelectedItemIds([itemId]) // selectedItemIds의 타입은 Array
     }
-    else {
-      if (!selectedItemIds.includes(itemId)) {
+    else { // 같은 컬럼일경우
+      if (!selectedItemIds.includes(itemId)) { // 새로 추가하는경우
         setSelectedItemIds([...selectedItemIds, itemId])
       } else {
-        const newSelectedItems = selectedItemIds.filter(x => x !== itemId)
+        const newSelectedItems = selectedItemIds.filter(x => x !== itemId) // 기존에 있던거 재 클릭하면 삭제
         setSelectedItemIds(newSelectedItems)
       }
     }
-  }, [])
+  }, []) // 랜더링 시에 한번만 함수 호출
 
+  // 아이템 추가 버튼, 흠이 많은 로직임 아이템에 부여되는 번호에 대해 예외처리 부족한 상태로 마무리 됨
   const addItemButton = (columnIndex) => {
     const newColumns = [...columns]
     const column = newColumns[columnIndex]
     if (!column.items || !Array.isArray(column.items)) { // 예외처리
       column.items = []
     }
-    if (column.items.length === 0) {
+    if (column.items.length === 0) { // 빈 컬럼일경우
       const newColumnItem = getItem(columnIndex + 1, 0)
       column.items.push(newColumnItem)
-    } else {
+    } else { // 기존의 아이템이 존재하던 컬럼 일경우
       const newColumnItem = getItem(columnIndex + 1, column.items[column.items.length - 1].number)
       column.items.push(newColumnItem)
     }
