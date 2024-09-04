@@ -38,6 +38,7 @@ export const AddItemButton = styled(BaseItem)`
 
 `
 
+//사용안함
 const DraggableItem1 = (props) => {
     const {
         provided,
